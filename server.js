@@ -47,6 +47,12 @@ const claudeClient = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY });
 // OpenAI
 const openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
+// deepseek
+const deepseekClient = new OpenAI({
+  baseURL: "https://api.deepseek.com",
+  apiKey: process.env.DEEPSEEK_API_KEY, // Lue depuis votre .env
+});
+
 /*****************************************************
  * 1) Endpoint GET (test)
  *****************************************************/
@@ -144,6 +150,39 @@ app.post('/api/translate/openai', async (req, res) => {
     return res.status(500).json({ error: "Erreur lors de la traduction via OpenAI" });
   }
 });
+
+/*****************************************************
+ * 5) Endpoint POST /api/translate/deepseek
+ *    (instructions OPTIONNELLES)
+ *****************************************************/
+app.post("/api/translate/deepseek", async (req, res) => {
+  try {
+    const { text, targetLanguage, instructions } = req.body;
+    if (!text || !targetLanguage) {
+      return res.status(400).json({ error: "Champs text et targetLanguage requis." });
+    }
+
+    // Construit le prompt avec instructions éventuelles
+    const prompt = instructions
+      ? `Instructions: ${instructions}\n\nTraduire ce texte en ${targetLanguage}:\n${text}`
+      : `Traduire ce texte en ${targetLanguage}:\n${text}`;
+
+    // Appel à DeepSeek (modèle "deepseek-chat" ou "deepseek-reasoner")
+    const response = await deepseekClient.chat.completions.create({
+      model: "deepseek-chat",  // Ou "deepseek-reasoner" selon vos besoins
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    // Extraction de la traduction
+    const translation = response.choices?.[0]?.message?.content || "(Aucune réponse DeepSeek)";
+    return res.json({ translation });
+
+  } catch (error) {
+    console.error("Erreur DeepSeek:", error.message);
+    return res.status(500).json({ error: "Erreur lors de la traduction via DeepSeek" });
+  }
+});
+
 
 /*****************************************************
  * Lancement du serveur
